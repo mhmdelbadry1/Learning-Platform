@@ -97,15 +97,68 @@ sendChatBtn.addEventListener('click', async () => {
     appendMessage(text, 'user');
     chatInput.value = '';
 
-    const response = await apiCall('/api/chat/message', 'POST', {
-        user_id: USER_ID,
-        message: text
-    });
+    // Create a placeholder for bot response
+    const botDiv = document.createElement('div');
+    botDiv.classList.add('message', 'bot');
+    botDiv.textContent = '';
+    chatHistory.appendChild(botDiv);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
 
-    if (response) {
-        // In a real app, we'd wait for WebSocket or poll for reply. 
-        // For now, just acknowledge.
-        appendMessage("Message sent to backend (Async processing)", 'bot');
+    try {
+        const response = await fetch(`${API_GATEWAY}/api/chat/message`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${JWT_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user_id: USER_ID,
+                message: text,
+                stream: true
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Handle streaming SSE response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete line in buffer
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6); // Remove 'data: ' prefix
+                    if (data === '[DONE]') continue;
+                    
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.text) {
+                            botDiv.textContent += parsed.text;
+                            chatHistory.scrollTop = chatHistory.scrollHeight;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing SSE data:', e, data);
+                    }
+                }
+            }
+        }
+
+        if (!botDiv.textContent) {
+            botDiv.textContent = 'No response received';
+        }
+    } catch (error) {
+        console.error('Chat error:', error);
+        botDiv.textContent = `Error: ${error.message}`;
     }
 });
 
