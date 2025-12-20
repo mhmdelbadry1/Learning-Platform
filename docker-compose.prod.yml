@@ -26,8 +26,6 @@ services:
     container_name: chat-service
     restart: always
     env_file: .env
-    dns:
-      - 8.8.8.8
     networks:
       - app-network
 
@@ -39,8 +37,6 @@ services:
     container_name: stt-service
     restart: always
     env_file: .env
-    dns:
-      - 8.8.8.8
     networks:
       - app-network
 
@@ -52,8 +48,6 @@ services:
     container_name: tts-service
     restart: always
     env_file: .env
-    dns:
-      - 8.8.8.8
     networks:
       - app-network
 
@@ -65,8 +59,6 @@ services:
     container_name: document-service
     restart: always
     env_file: .env
-    dns:
-      - 8.8.8.8
     networks:
       - app-network
 
@@ -78,8 +70,6 @@ services:
     container_name: quiz-service
     restart: always
     env_file: .env
-    dns:
-      - 8.8.8.8
     networks:
       - app-network
 
