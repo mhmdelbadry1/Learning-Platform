@@ -422,6 +422,12 @@ async def get_quiz_history(user_id: str, limit: int = 20):
         raise HTTPException(status_code=500, detail="Database unavailable")
     
     try:
+        # Convert user_id to int if it's a number, otherwise use as string
+        try:
+            uid = int(user_id)
+        except ValueError:
+            uid = user_id
+            
         with conn.cursor() as cur:
             cur.execute(
                 """SELECT qr.quiz_id, q.title, qr.score, qr.submitted_at 
@@ -429,7 +435,7 @@ async def get_quiz_history(user_id: str, limit: int = 20):
                    JOIN quizzes q ON qr.quiz_id = q.id
                    WHERE qr.user_id = %s 
                    ORDER BY qr.submitted_at DESC LIMIT %s""",
-                (user_id, limit)
+                (uid, limit)
             )
             history = [
                 {
