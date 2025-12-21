@@ -36,10 +36,23 @@ export default function Dashboard() {
     }
   })
 
+  // Fetch conversation count (number of distinct conversations, not messages)
+  const { data: conversationData = [] } = useQuery({
+    queryKey: ['conversations', userId],
+    queryFn: async () => {
+      return await apiClient.get(`/api/chat/conversations?user_id=${userId}`)
+    }
+  })
+
+  // Calculate average quiz score
+  const avgScore = quizHistory.length > 0
+    ? Math.round(quizHistory.reduce((sum, q) => sum + q.score, 0) / quizHistory.length)
+    : 0
+
   const stats = [
     {
       label: 'Conversations',
-      value: '0', // Chat feature needs chat_service integration
+      value: conversationData.length.toString(),
       icon: MessageSquare,
       color: 'from-primary-500 to-primary-600'
     },
@@ -53,15 +66,13 @@ export default function Dashboard() {
       label: 'Quizzes Taken',
       value: quizHistory.length.toString(),
       icon: Brain,
-      color: 'from-emerald-500 to-emerald-600'
+      color: 'from-accent-500 to-accent-600'
     },
     {
-      label: 'Average Score',
-      value: quizHistory.length > 0
-        ? `${Math.round(quizHistory.reduce((acc, q) => acc + q.score, 0) / quizHistory.length)}%`
-        : '0%',
+      label: 'Avg Quiz Score',
+      value: `${avgScore}%`,
       icon: TrendingUp,
-      color: 'from-amber-500 to-amber-600'
+      color: 'from-emerald-500 to-emerald-600'
     },
   ]
 
