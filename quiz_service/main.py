@@ -313,6 +313,43 @@ async def generate_quiz(request: QuizGenerationRequest, background_tasks: Backgr
         "status": "generated"
     }
 
+@app.get("/api/quiz/history")
+async def get_quiz_history(user_id: str, limit: int = 20):
+    """Get quiz history for a user"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database unavailable")
+    
+    try:
+        # Convert user_id to int if it's a number, otherwise use as string
+        try:
+            uid = int(user_id)
+        except ValueError:
+            uid = user_id
+            
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT qr.quiz_id, q.title, qr.score, qr.submitted_at 
+                   FROM quiz_responses qr
+                   JOIN quizzes q ON qr.quiz_id = q.id
+                   WHERE qr.user_id = %s 
+                   ORDER BY qr.submitted_at DESC LIMIT %s""",
+                (uid, limit)
+            )
+            history = [
+                {
+                    "quiz_id": row[0],
+                    "title": row[1],
+                    "score": row[2],
+                    "submitted_at": row[3].isoformat() if row[3] else None
+                }
+                for row in cur.fetchall()
+            ]
+    finally:
+        conn.close()
+    
+    return history  # Return empty array if no results
+
 @app.get("/api/quiz/{id}")
 async def get_quiz(id: str):
     """Get quiz questions"""
@@ -414,42 +451,7 @@ async def get_quiz_results(id: str, user_id: str):
         "submitted_at": result[2].isoformat() if result[2] else None
     }
 
-@app.get("/api/quiz/history")
-async def get_quiz_history(user_id: str, limit: int = 20):
-    """Get quiz history for a user"""
-    conn = get_db_connection()
-    if not conn:
-        raise HTTPException(status_code=500, detail="Database unavailable")
-    
-    try:
-        # Convert user_id to int if it's a number, otherwise use as string
-        try:
-            uid = int(user_id)
-        except ValueError:
-            uid = user_id
-            
-        with conn.cursor() as cur:
-            cur.execute(
-                """SELECT qr.quiz_id, q.title, qr.score, qr.submitted_at 
-                   FROM quiz_responses qr
-                   JOIN quizzes q ON qr.quiz_id = q.id
-                   WHERE qr.user_id = %s 
-                   ORDER BY qr.submitted_at DESC LIMIT %s""",
-                (uid, limit)
-            )
-            history = [
-                {
-                    "quiz_id": row[0],
-                    "title": row[1],
-                    "score": row[2],
-                    "submitted_at": row[3].isoformat() if row[3] else None
-                }
-                for row in cur.fetchall()
-            ]
-    finally:
-        conn.close()
-    
-    return history  # Return empty array if no results
+
 
 @app.delete("/api/quiz/{id}")
 async def delete_quiz(id: str):
