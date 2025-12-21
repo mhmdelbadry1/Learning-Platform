@@ -25,7 +25,8 @@ export default function Dashboard() {
     queryKey: ['documents', userId],
     queryFn: async () => {
       return await apiClient.get<Document[]>(`/api/documents?user_id=${userId}`)
-    }
+    },
+    refetchInterval: 5000 // Refetch every 5 seconds
   })
 
   // Fetch quiz history
@@ -33,7 +34,8 @@ export default function Dashboard() {
     queryKey: ['quiz-history', userId],
     queryFn: async () => {
       return await apiClient.get<QuizHistory[]>(`/api/quiz/history?user_id=${userId}&limit=20`)
-    }
+    },
+    refetchInterval: 3000 // Refetch every 3 seconds for real-time updates
   })
 
   const stats = [
@@ -157,8 +159,8 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <span className={`px-2 py-1 rounded text-sm font-medium ${quiz.score >= 80 ? 'bg-emerald-500/20 text-emerald-400' :
-                        quiz.score >= 60 ? 'bg-amber-500/20 text-amber-400' :
-                          'bg-red-500/20 text-red-400'
+                      quiz.score >= 60 ? 'bg-amber-500/20 text-amber-400' :
+                        'bg-red-500/20 text-red-400'
                       }`}>
                       {quiz.score.toFixed(0)}%
                     </span>
