@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Brain, Loader2, CheckCircle, XCircle, ArrowRight } from 'lucide-react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import apiClient from '../lib/api'
 
 interface Document {
@@ -45,6 +45,7 @@ export default function Quiz() {
   const [answers, setAnswers] = useState<Record<number, string>>({})
   const [results, setResults] = useState<QuizResult | null>(null)
   const userId = localStorage.getItem('user_id') || 'default'
+  const queryClient = useQueryClient()
 
   // Fetch documents
   const { data: documents = [], isLoading: docsLoading } = useQuery<Document[]>({
@@ -93,6 +94,8 @@ export default function Quiz() {
     onSuccess: (data) => {
       setResults(data)
       setStep('results')
+      // Invalidate quiz history cache to update dashboard
+      queryClient.invalidateQueries({ queryKey: ['quiz-history'] })
     }
   })
 
@@ -202,8 +205,8 @@ export default function Quiz() {
                       key={optIdx}
                       onClick={() => setAnswers({ ...answers, [q.id]: opt })}
                       className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all ${answers[q.id] === opt
-                          ? 'border-primary-500 bg-primary-500/20'
-                          : 'border-slate-700 hover:border-slate-600'
+                        ? 'border-primary-500 bg-primary-500/20'
+                        : 'border-slate-700 hover:border-slate-600'
                         }`}
                     >
                       {opt}
@@ -216,8 +219,8 @@ export default function Quiz() {
                       key={opt}
                       onClick={() => setAnswers({ ...answers, [q.id]: opt.toLowerCase() })}
                       className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-all ${answers[q.id] === opt.toLowerCase()
-                          ? 'border-primary-500 bg-primary-500/20'
-                          : 'border-slate-700 hover:border-slate-600'
+                        ? 'border-primary-500 bg-primary-500/20'
+                        : 'border-slate-700 hover:border-slate-600'
                         }`}
                     >
                       {opt}

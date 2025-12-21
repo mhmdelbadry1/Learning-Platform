@@ -25,8 +25,7 @@ export default function Dashboard() {
     queryKey: ['documents', userId],
     queryFn: async () => {
       return await apiClient.get<Document[]>(`/api/documents?user_id=${userId}`)
-    },
-    refetchInterval: 5000 // Refetch every 5 seconds
+    }
   })
 
   // Fetch quiz history
@@ -34,8 +33,7 @@ export default function Dashboard() {
     queryKey: ['quiz-history', userId],
     queryFn: async () => {
       return await apiClient.get<QuizHistory[]>(`/api/quiz/history?user_id=${userId}&limit=20`)
-    },
-    refetchInterval: 3000 // Refetch every 3 seconds for real-time updates
+    }
   })
 
   const stats = [
