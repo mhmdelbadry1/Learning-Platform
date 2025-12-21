@@ -6,7 +6,7 @@ import psycopg2
 import PyPDF2
 import pdfplumber
 from docx import Document as DocxDocument
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import FastAPI, Upload File, File, HTTPException, BackgroundTasks, Form
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from typing import Optional
@@ -251,7 +251,7 @@ def process_document_async(doc_id: str, file_bytes: bytes, filename: str, file_t
                 conn.close()
 
 @app.post("/api/documents/upload")
-async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...), user_id: str = "default"):
+async def upload_document(background_tasks: BackgroundTasks, file: UploadFile = File(...), user_id: str = Form("default")):
     """Upload and process a document"""
     doc_id = str(uuid.uuid4())
     
