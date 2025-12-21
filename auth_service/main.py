@@ -26,8 +26,12 @@ app.add_middleware(
 # Initialize database on startup
 @app.on_event("startup")
 async def startup():
-    init_db()
-    logger.info("Auth service started")
+    try:
+        init_db()
+        logger.info("Auth service started successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        logger.warning("Service started but database may not be ready")
 
 @app.get("/")
 async def root():
