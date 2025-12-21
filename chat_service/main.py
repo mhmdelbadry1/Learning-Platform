@@ -71,10 +71,13 @@ def initialize_database():
         return
     try:
         with conn.cursor() as cur:
+            # Enable UUID extension
+            cur.execute("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\";")
+            
             # Create conversations table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS conversations (
-                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                     user_id VARCHAR(100) NOT NULL,
                     title VARCHAR(255) DEFAULT 'New Conversation',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -84,19 +87,36 @@ def initialize_database():
                 CREATE INDEX IF NOT EXISTS idx_conv_user_id ON conversations(user_id);
             """)
             
-            # Create chat_history table with conversation_id
+            # Create or alter chat_history table
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS chat_history (
                     id SERIAL PRIMARY KEY,
-                    conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
                     user_id VARCHAR(100),
                     message TEXT,
                     role VARCHAR(20),
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
-                CREATE INDEX IF NOT EXISTS idx_user_id ON chat_history(user_id);
-                CREATE INDEX IF NOT EXISTS idx_chat_conversation_id ON chat_history(conversation_id);
             """)
+            
+            # Add conversation_id column if it doesn't exist (migration for existing tables)
+            cur.execute("""
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name='chat_history' AND column_name='conversation_id'
+                    ) THEN
+                        ALTER TABLE chat_history ADD COLUMN conversation_id UUID NULL;
+                        ALTER TABLE chat_history ADD CONSTRAINT fk_conversation 
+                            FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;
+                        CREATE INDEX idx_chat_conversation_id ON chat_history(conversation_id);
+                    END IF;
+                END $$;
+            """)
+            
+            # Create indexes
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_user_id ON chat_history(user_id);")
+            
             conn.commit()
     finally:
         conn.close()
