@@ -153,10 +153,10 @@ def get_conversation_context(conversation_id: str, limit: int = 50):
     # Reverse to get chronological order
     return [{"role": row[0], "message": row[1]} for row in reversed(rows)]
 
-async def generate_streaming_response(user_id: str, message: str):
+async def generate_streaming_response(conversation_id: str, user_id: str, message: str):
     """Generate streaming AI response using Gemini"""
-    # Get conversation context
-    context = get_conversation_context(user_id)
+    # Get conversation context (last 50 messages from this conversation)
+    context = get_conversation_context(conversation_id)
     
     # Build conversation history for Gemini
     chat_history = []
@@ -192,10 +192,11 @@ Keep responses concise and engaging."""
                     yield f"data: {json.dumps({'text': chunk.text})}\n\n"
             
             # Save assistant response
-            save_message(user_id, full_response, "assistant")
+            save_message(conversation_id, user_id, full_response, "assistant")
             
             # Publish event
             send_event("chat.message", {
+                "conversation_id": conversation_id,
                 "user_id": user_id,
                 "user_message": message,
                 "assistant_message": full_response,
@@ -208,12 +209,12 @@ Keep responses concise and engaging."""
             print(f"Gemini API Error: {e}")
             error_msg = f"I apologize, but I encountered an error. Please try again. Error: {str(e)}"
             yield f"data: {json.dumps({'text': error_msg, 'done': True})}\n\n"
-            save_message(user_id, error_msg, "assistant")
+            save_message(conversation_id, user_id, error_msg, "assistant")
     else:
         # Fallback response if Gemini not configured
         fallback = "Chat service is not fully configured. Please add your GEMINI_API_KEY to the .env file."
         yield f"data: {json.dumps({'text': fallback, 'done': True})}\n\n"
-        save_message(user_id, fallback, "assistant")
+        save_message(conversation_id, user_id, fallback, "assistant")
 
 @app.post("/api/chat/message")
 async def send_message(request: ChatRequest):
@@ -221,18 +222,18 @@ async def send_message(request: ChatRequest):
     Send a message and get AI response (streaming or non-streaming)
     """
     # Save user message
-    save_message(request.user_id, request.message, "user")
+    save_message(request.conversation_id, request.user_id, request.message, "user")
     
     if request.stream:
         # Return streaming response
         return StreamingResponse(
-            generate_streaming_response(request.user_id, request.message),
+            generate_streaming_response(request.conversation_id, request.user_id, request.message),
             media_type="text/event-stream"
         )
     else:
         # Non-streaming response (for compatibility)
         full_response = ""
-        async for chunk in generate_streaming_response(request.user_id, request.message):
+        async for chunk in generate_streaming_response(request.conversation_id, request.user_id, request.message):
             if '"text"' in chunk:
                 data = json.loads(chunk.replace("data: ", ""))
                 if "text" in data:
@@ -240,54 +241,134 @@ async def send_message(request: ChatRequest):
         
         return {"response": full_response}
 
-@app.get("/api/chat/conversations")
-async def list_conversations(user_id: str):
-    """List all conversations for a user"""
+# ===== New Conversation Management Endpoints =====
+
+@app.post("/api/chat/conversations/new")
+async def create_conversation(request: NewConversationRequest):
+    """Create a new conversation"""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database unavailable")
-        
+    
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT DISTINCT user_id, MAX(timestamp) as last_active FROM chat_history WHERE user_id = %s GROUP BY user_id",
-                (user_id,)
+                "INSERT INTO conversations (user_id, title) VALUES (%s, %s) RETURNING id, title, created_at",
+                (request.user_id, request.title)
+            )
+            result = cur.fetchone()
+        conn.commit()
+    finally:
+        conn.close()
+    
+    return {
+        "id": str(result[0]),
+        "title": result[1],
+        "created_at": result[2].isoformat() if result[2] else None
+    }
+
+@app.get("/api/chat/conversations/list")
+async def list_user_conversations(user_id: str):
+    """Get all conversations for a user with preview of last message"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database unavailable")
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT 
+                    c.id, 
+                    c.title, 
+                    c.updated_at,
+                    c.created_at,
+                    (SELECT message FROM chat_history WHERE conversation_id = c.id ORDER BY timestamp DESC LIMIT 1) as last_message,
+                    (SELECT COUNT(*) FROM chat_history WHERE conversation_id = c.id) as message_count
+                FROM conversations c
+                WHERE c.user_id = %s AND c.is_archived = FALSE
+                ORDER BY c.updated_at DESC
+            """, (user_id,))
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+    
+    return [{
+        "id": str(row[0]),
+        "title": row[1],
+        "last_active": row[2].isoformat() if row[2] else None,
+        "created_at": row[3].isoformat() if row[3] else None,
+        "last_message": row[4] if row[4] else "",
+        "message_count": row[5]
+    } for row in rows]
+
+@app.get("/api/chat/conversations/{conversation_id}/messages")
+async def get_conversation_messages(conversation_id: str, limit: int = 100):
+    """Get messages for a specific conversation"""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database unavailable")
+    
+    try:
+        with conn.cursor() as cur:
+            # Get conversation info
+            cur.execute(
+                "SELECT title FROM conversations WHERE id = %s",
+                (conversation_id,)
+            )
+            conv = cur.fetchone()
+            if not conv:
+                raise HTTPException(status_code=404, detail="Conversation not found")
+            
+            # Get messages
+            cur.execute(
+                "SELECT id, message, role, timestamp FROM chat_history WHERE conversation_id = %s ORDER BY timestamp ASC LIMIT %s",
+                (conversation_id, limit)
             )
             rows = cur.fetchall()
     finally:
         conn.close()
     
-    return [{"user_id": row[0], "last_active": row[1].isoformat() if row[1] else None} for row in rows]
+    return {
+        "conversation_id": conversation_id,
+        "title": conv[0],
+        "messages": [{
+            "id": row[0],
+            "message": row[1],
+            "role": row[2],
+            "timestamp": row[3].isoformat() if row[3] else None
+        } for row in rows]
+    }
 
-@app.get("/api/chat/conversations/{user_id}")
-async def get_conversation_history(user_id: str, limit: int = 50):
-    """Get conversation history for a specific user"""
+@app.patch("/api/chat/conversations/{conversation_id}/title")
+async def update_conversation_title(conversation_id: str, request: UpdateTitleRequest):
+    """Update conversation title"""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database unavailable")
-        
+    
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT message, role, timestamp FROM chat_history WHERE user_id = %s ORDER BY timestamp ASC LIMIT %s",
-                (user_id, limit)
+                "UPDATE conversations SET title = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                (request.title, conversation_id)
             )
-            rows = cur.fetchall()
+        conn.commit()
     finally:
         conn.close()
     
-    return [{"message": row[0], "role": row[1], "timestamp": row[2].isoformat() if row[2] else None} for row in rows]
+    return {"status": "updated", "title": request.title}
 
-@app.delete("/api/chat/conversations/{user_id}")
-async def delete_conversation(user_id: str):
-    """Delete all messages for a user"""
+@app.delete("/api/chat/conversations/{conversation_id}")
+async def delete_conversation(conversation_id: str):
+    """Delete a specific conversation and all its messages"""
     conn = get_db_connection()
     if not conn:
         raise HTTPException(status_code=500, detail="Database unavailable")
-        
+    
     try:
         with conn.cursor() as cur:
-            cur.execute("DELETE FROM chat_history WHERE user_id = %s", (user_id,))
+            # Delete conversation (messages will cascade delete due to foreign key)
+            cur.execute("DELETE FROM conversations WHERE id = %s", (conversation_id,))
         conn.commit()
     finally:
         conn.close()
