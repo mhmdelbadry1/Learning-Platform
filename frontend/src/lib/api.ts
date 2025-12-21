@@ -1,5 +1,5 @@
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://3.237.171.171:8000'
+const API_BASE_URL = import.meta.env.VITE_API_URL || ''
 
 // API Client
 class APIClient {
@@ -15,11 +15,11 @@ class APIClient {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     }
-    
+
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`
     }
-    
+
     return headers
   }
 
@@ -27,11 +27,11 @@ class APIClient {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       headers: this.getHeaders(),
     })
-    
+
     if (!response.ok) {
       throw new Error(`API Error: ${response.statusText}`)
     }
-    
+
     return response.json()
   }
 
@@ -41,11 +41,11 @@ class APIClient {
       headers: this.getHeaders(),
       body: JSON.stringify(data),
     })
-    
+
     if (!response.ok) {
       throw new Error(`API Error: ${response.statusText}`)
     }
-    
+
     return response.json()
   }
 
@@ -60,11 +60,11 @@ class APIClient {
       headers,
       body: formData,
     })
-    
+
     if (!response.ok) {
       throw new Error(`API Error: ${response.statusText}`)
     }
-    
+
     return response.json()
   }
 
@@ -75,11 +75,11 @@ class APIClient {
       headers: this.getHeaders(),
       body: JSON.stringify(data),
     })
-    
+
     if (!response.ok) {
       throw new Error(`API Error: ${response.statusText}`)
     }
-    
+
     return response
   }
 }

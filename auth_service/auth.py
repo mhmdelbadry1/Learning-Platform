@@ -23,7 +23,10 @@ def create_access_token(data: dict) -> str:
     """Create JWT access token"""
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=JWT_EXPIRY_MINUTES)
-    to_encode.update({"exp": expire})
+    to_encode.update({
+        "exp": expire,
+        "iss": "platform-jwt-issuer"  # Required by Kong JWT plugin
+    })
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
     return encoded_jwt
 

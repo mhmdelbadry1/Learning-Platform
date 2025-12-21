@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LogIn, UserPlus, Loader2 } from 'lucide-react'
+import { LogIn, UserPlus, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import apiClient from '../lib/api'
 
 interface AuthProps {
@@ -13,40 +13,52 @@ export default function Auth({ onAuth }: AuthProps) {
   const [username, setUsername] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccess('')
     setLoading(true)
 
     try {
       if (isLogin) {
         // Login
-        const response = await apiClient.post<{token: string; user_id: number; username: string; email: string}>('/api/auth/login', {
+        const response = await apiClient.post<{ token: string; user_id: number; username: string; email: string }>('/api/auth/login', {
           email,
           password
         })
-        
+
         localStorage.setItem('auth_token', response.token)
         localStorage.setItem('user_id', String(response.user_id))
         localStorage.setItem('user_email', response.email)
         localStorage.setItem('username', response.username)
-        
-        onAuth()
+
+        setSuccess(`Welcome back, ${response.username}!`)
+
+        // Delay navigation to show success message
+        setTimeout(() => {
+          onAuth()
+        }, 1000)
       } else {
         // Register
-        const response = await apiClient.post<{token: string; user_id: number; username: string; email: string}>('/api/auth/register', {
+        const response = await apiClient.post<{ token: string; user_id: number; username: string; email: string }>('/api/auth/register', {
           username,
           email,
           password
         })
-        
+
         localStorage.setItem('auth_token', response.token)
         localStorage.setItem('user_id', String(response.user_id))
         localStorage.setItem('user_email', response.email)
         localStorage.setItem('username', response.username)
-        
-        onAuth()
+
+        setSuccess(`Account created successfully! Welcome, ${response.username}!`)
+
+        // Delay navigation to show success message
+        setTimeout(() => {
+          onAuth()
+        }, 1000)
       }
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || 'Authentication failed')
@@ -68,23 +80,21 @@ export default function Auth({ onAuth }: AuthProps) {
         <div className="card">
           <div className="flex mb-6">
             <button
-              onClick={() => { setIsLogin(true); setError('') }}
-              className={`flex-1 py-3 font-medium transition-all ${
-                isLogin
+              onClick={() => { setIsLogin(true); setError(''); setSuccess('') }}
+              className={`flex-1 py-3 font-medium transition-all ${isLogin
                   ? 'text-primary-400 border-b-2 border-primary-400'
                   : 'text-slate-400 border-b-2 border-transparent'
-              }`}
+                }`}
             >
               <LogIn className="w-5 h-5 inline mr-2" />
               Login
             </button>
             <button
-              onClick={() => { setIsLogin(false); setError('') }}
-              className={`flex-1 py-3 font-medium transition-all ${
-                !isLogin
+              onClick={() => { setIsLogin(false); setError(''); setSuccess('') }}
+              className={`flex-1 py-3 font-medium transition-all ${!isLogin
                   ? 'text-primary-400 border-b-2 border-primary-400'
                   : 'text-slate-400 border-b-2 border-transparent'
-              }`}
+                }`}
             >
               <UserPlus className="w-5 h-5 inline mr-2" />
               Register
@@ -101,7 +111,7 @@ export default function Auth({ onAuth }: AuthProps) {
                   onChange={(e) => setUsername(e.target.value)}
                   required={!isLogin}
                   minLength={3}
-                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
                   placeholder="johndoe"
                 />
               </div>
@@ -114,7 +124,7 @@ export default function Auth({ onAuth }: AuthProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
                 placeholder="you@example.com"
               />
             </div>
@@ -127,7 +137,7 @@ export default function Auth({ onAuth }: AuthProps) {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
                 placeholder="••••••••"
               />
               {!isLogin && (
@@ -135,9 +145,19 @@ export default function Auth({ onAuth }: AuthProps) {
               )}
             </div>
 
+            {/* Success Message */}
+            {success && (
+              <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-400 text-sm flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                <span>{success}</span>
+              </div>
+            )}
+
+            {/* Error Message */}
             {error && (
-              <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
-                {error}
+              <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm flex items-center gap-2 animate-fade-in">
+                <XCircle className="w-5 h-5 flex-shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 
