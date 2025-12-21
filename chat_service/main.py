@@ -40,8 +40,16 @@ s3_client = boto3.client('s3', region_name=AWS_REGION)
 
 class ChatRequest(BaseModel):
     user_id: str
+    conversation_id: str  # Now required
     message: str
     stream: bool = True
+
+class NewConversationRequest(BaseModel):
+    user_id: str
+    title: str = "New Conversation"
+
+class UpdateTitleRequest(BaseModel):
+    title: str
 
 class ChatHistoryRequest(BaseModel):
     user_id: str
@@ -63,15 +71,31 @@ def initialize_database():
         return
     try:
         with conn.cursor() as cur:
+            # Create conversations table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id VARCHAR(100) NOT NULL,
+                    title VARCHAR(255) DEFAULT 'New Conversation',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_archived BOOLEAN DEFAULT FALSE
+                );
+                CREATE INDEX IF NOT EXISTS idx_conv_user_id ON conversations(user_id);
+            """)
+            
+            # Create chat_history table with conversation_id
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS chat_history (
                     id SERIAL PRIMARY KEY,
+                    conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
                     user_id VARCHAR(100),
                     message TEXT,
                     role VARCHAR(20),
                     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
                 CREATE INDEX IF NOT EXISTS idx_user_id ON chat_history(user_id);
+                CREATE INDEX IF NOT EXISTS idx_chat_conversation_id ON chat_history(conversation_id);
             """)
             conn.commit()
     finally:
@@ -79,15 +103,20 @@ def initialize_database():
     # Start Kafka consumer in background thread
     threading.Thread(target=document_consumer, daemon=True).start()
 
-def save_message(user_id: str, message: str, role: str):
+def save_message(conversation_id: str, user_id: str, message: str, role: str):
     """Save message to database and S3"""
     conn = get_db_connection()
     if conn:
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    "INSERT INTO chat_history (user_id, message, role) VALUES (%s, %s, %s)",
-                    (user_id, message, role)
+                    "INSERT INTO chat_history (conversation_id, user_id, message, role) VALUES (%s, %s, %s, %s)",
+                    (conversation_id, user_id, message, role)
+                )
+                # Update conversation's updated_at timestamp
+                cur.execute(
+                    "UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (conversation_id,)
                 )
             conn.commit()
         finally:
@@ -95,17 +124,17 @@ def save_message(user_id: str, message: str, role: str):
     
     # Archive to S3
     timestamp = datetime.now().isoformat()
-    s3_key = f"chats/{user_id}/{timestamp}_{role}.json"
+    s3_key = f"chats/{user_id}/{conversation_id}/{timestamp}_{role}.json"
     try:
         s3_client.put_object(
             Bucket=S3_BUCKET,
             Key=s3_key,
-            Body=json.dumps({"user_id": user_id, "message": message, "role": role, "timestamp": timestamp})
+            Body=json.dumps({"conversation_id": conversation_id, "user_id": user_id, "message": message, "role": role, "timestamp": timestamp})
         )
     except Exception as e:
         print(f"S3 Archival Error: {e}")
 
-def get_conversation_context(user_id: str, limit: int = 10):
+def get_conversation_context(conversation_id: str, limit: int = 50):
     """Retrieve recent conversation history for context"""
     conn = get_db_connection()
     if not conn:
@@ -114,8 +143,8 @@ def get_conversation_context(user_id: str, limit: int = 10):
     try:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT role, message FROM chat_history WHERE user_id = %s ORDER BY timestamp DESC LIMIT %s",
-                (user_id, limit)
+                "SELECT role, message FROM chat_history WHERE conversation_id = %s ORDER BY timestamp DESC LIMIT %s",
+                (conversation_id, limit)
             )
             rows = cur.fetchall()
     finally:
