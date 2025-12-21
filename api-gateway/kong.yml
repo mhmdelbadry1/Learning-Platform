@@ -3,6 +3,34 @@ _comment: "Kong Declarative Configuration for Phase 2 - Fully Compliant"
 
 services:
   # -----------------------------------
+  # 0. Auth Service (Public - No JWT)
+  # -----------------------------------
+  - name: auth-service
+    url: http://auth-service:8000
+    routes:
+      - name: auth-route
+        paths:
+          - /api/auth
+        strip_path: false
+        plugins:
+          # CORS Plugin
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - "GET"
+                - "POST"
+                - "OPTIONS"
+              headers:
+                - "Content-Type"
+                - "Authorization"
+              exposed_headers:
+                - "X-Total-Count"
+              credentials: true
+              max_age: 3600
+  
+  # -----------------------------------
   # 1. Quiz Service
   # -----------------------------------
   - name: quiz-service

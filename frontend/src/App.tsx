@@ -13,23 +13,12 @@ import Auth from './pages/Auth'
 const queryClient = new QueryClient()
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(true) // Start as true in dev mode
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
   
   useEffect(() => {
     // Check if user is authenticated (check for JWT token)
-    let token = localStorage.getItem('auth_token')
-    
-    // DEV MODE: Auto-create token if none exists
-    if (!token) {
-      const devToken = 'dev-token-' + Date.now()
-      const devUserId = 'dev-user-' + Date.now()
-      localStorage.setItem('auth_token', devToken)
-      localStorage.setItem('user_id', devUserId)
-      localStorage.setItem('user_email', 'dev@example.com')
-      token = devToken
-    }
-    
+    const token = localStorage.getItem('auth_token')
     setIsAuthenticated(!!token)
     setLoading(false)
   }, [])
