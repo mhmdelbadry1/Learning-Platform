@@ -443,7 +443,7 @@ async def get_quiz_history(user_id: str, limit: int = 20):
     finally:
         conn.close()
     
-    return history
+    return history  # Return empty array if no results
 
 @app.delete("/api/quiz/{id}")
 async def delete_quiz(id: str):
