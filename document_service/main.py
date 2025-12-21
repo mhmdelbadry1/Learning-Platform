@@ -6,7 +6,7 @@ import psycopg2
 import PyPDF2
 import pdfplumber
 from docx import Document as DocxDocument
-from fastapi import FastAPI, Upload File, File, HTTPException, BackgroundTasks, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Form
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from typing import Optional
