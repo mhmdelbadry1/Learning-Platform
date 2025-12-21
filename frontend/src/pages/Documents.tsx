@@ -1,101 +1,164 @@
 import { useState } from 'react'
-import { Upload, FileText, Download, Trash2, Loader2 } from 'lucide-react'
+import { Upload, FileText, Download, Trash2, Loader2, CheckCircle, XCircle } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import apiClient from '../lib/api'
 
 interface Document {
   id: string
   filename: string
-  s3_url: string
-  notes?: string
+  file_type: string
   uploaded_at: string
+  processed: boolean
 }
 
 export default function Documents() {
-  const [documents, setDocuments] = useState<Document[]>([])
   const [uploading, setUploading] = useState(false)
-  const [dragActive, setDragActive] = useState(false)
-  const userId = localStorage.getItem('user_id') || 'dev-user'
+  const [uploadStatus, setUploadStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null)
+  const queryClient = useQueryClient()
+  const userId = localStorage.getItem('user_id') || 'default'
 
-  const handleFileUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return
+  // Fetch documents
+  const { data: documents = [], isLoading } = useQuery<Document[]>({
+    queryKey: ['documents', userId],
+    queryFn: async () => {
+      const docs = await apiClient.get<Document[]>(`/api/documents?user_id=${userId}`)
+      return docs
+    },
+    refetchInterval: 5000 // Refetch every 5s to check processing status
+  })
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiClient.post(`/api/documents/${id}`, {})
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+    }
+  })
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
 
     setUploading(true)
-    const file = files[0]
-    const formData = new FormData()
-    formData.append('file', file)
+    setUploadStatus(null)
 
     try {
-      const response = await apiClient.postFormData<Document>(`/api/documents/upload?user_id=${userId}`, formData)
-      setDocuments(prev => [response, ...prev])
-    } catch (error) {
-      console.error('Upload failed:', error)
-      alert('Upload failed. Please try again.')
-    }
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('user_id', userId)
 
-    setUploading(false)
+      const response = await apiClient.postFormData<{ id: string, filename: string, message: string }>(
+        '/api/documents/upload',
+        formData
+      )
+
+      setUploadStatus({ type: 'success', message: response.message })
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+
+      // Reset file input
+      e.target.value = ''
+    } catch (error: any) {
+      setUploadStatus({
+        type: 'error',
+        message: error.response?.data?.detail || 'Upload failed'
+      })
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Documents</h1>
-
-      {/* Upload Zone */}
-      <div
-        className={`card border-2 border-dashed transition-all ${
-          dragActive ? 'border-primary-500 bg-primary-500/10' : 'border-slate-700'
-        }`}
-        onDragEnter={() => setDragActive(true)}
-        onDragLeave={() => setDragActive(false)}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault()
-          setDragActive(false)
-          handleFileUpload(e.dataTransfer.files)
-        }}
-      >
-        <div className="text-center py-12">
-          <Upload className="w-12 h-12 mx-auto mb-4 text-slate-400" />
-          <h3 className="text-xl font-semibold mb-2">Upload Document</h3>
-          <p className="text-slate-400 mb-4">Drag & drop or click to select</p>
-          <label className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-lg cursor-pointer hover:from-primary-600 hover:to-secondary-600">
-            {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-            {uploading ? 'Uploading...' : 'Select File'}
-            <input
-              type="file"
-              className="hidden"
-              accept=".pdf,.doc,.docx,.txt"
-              onChange={(e) => handleFileUpload(e.target.files)}
-              disabled={uploading}
-            />
-          </label>
-        </div>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Documents</h1>
+        <label className="px-6 py-3 bg-gradient-to-r from-primary-500 to-secondary-500 rounded-lg font-medium cursor-pointer hover:from-primary-600 hover:to-secondary-600 flex items-center gap-2">
+          <Upload className="w-5 h-5" />
+          Upload Document
+          <input
+            type="file"
+            accept=".pdf,.docx,.doc,.txt"
+            onChange={handleUpload}
+            disabled={uploading}
+            className="hidden"
+          />
+        </label>
       </div>
 
-      {/* Documents Grid */}
-      {documents.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Upload Status */}
+      {uploadStatus && (
+        <div className={`card animate-fade-in flex items-center gap-3 ${uploadStatus.type === 'success' ? 'bg-emerald-500/10 border-emerald-500' : 'bg-red-500/10 border-red-500'
+          }`}>
+          {uploadStatus.type === 'success' ? (
+            <CheckCircle className="w-5 h-5 text-emerald-500" />
+          ) : (
+            <XCircle className="w-5 h-5 text-red-500" />
+          )}
+          <p className={uploadStatus.type === 'success' ? 'text-emerald-400' : 'text-red-400'}>
+            {uploadStatus.message}
+          </p>
+        </div>
+      )}
+
+      {uploading && (
+        <div className="card flex items-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-primary-400" />
+          <p>Uploading document...</p>
+        </div>
+      )}
+
+      {/* Documents List */}
+      {isLoading ? (
+        <div className="card text-center py-20">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary-400" />
+          <p className="text-slate-400">Loading documents...</p>
+        </div>
+      ) : documents.length === 0 ? (
+        <div className="card text-center py-20">
+          <FileText className="w-16 h-16 mx-auto mb-4 text-slate-600" />
+          <h2 className="text-xl font-semibold mb-2">No Documents Yet</h2>
+          <p className="text-slate-400 mb-6">Upload your first document to get started</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
           {documents.map((doc) => (
-            <div key={doc.id} className="card hover:scale-105 transition-transform">
-              <div className="flex items-start gap-3">
-                <FileText className="w-8 h-8 text-primary-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-medium truncate">{doc.filename}</h3>
-                  <p className="text-sm text-slate-400">
-                    {new Date(doc.uploaded_at).toLocaleDateString()}
-                  </p>
+            <div key={doc.id} className="card hover:border-primary-500 transition-colors">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="p-3 rounded-lg bg-gradient-to-br from-primary-500 to-secondary-500">
+                    <FileText className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-lg">{doc.filename}</h3>
+                    <p className="text-sm text-slate-400">
+                      Uploaded {new Date(doc.uploaded_at).toLocaleDateString()} • {doc.file_type.toUpperCase()}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {doc.processed ? (
+                        <span className="text-xs text-emerald-400 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Processed
+                        </span>
+                      ) : (
+                        <span className="text-xs text-amber-400 flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Processing...
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              {doc.notes && (
-                <p className="mt-3 text-sm text-slate-300">{doc.notes.slice(0, 100)}...</p>
-              )}
-              <div className="flex gap-2 mt-4">
-                <button className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm">
-                  <Download className="w-4 h-4 inline mr-2" />
-                  Download
-                </button>
-                <button className="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg text-sm">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => deleteMutation.mutate(doc.id)}
+                    disabled={deleteMutation.isPending}
+                    className="p-2 hover:bg-red-500/20 rounded-lg transition-colors text-red-400 hover:text-red-300"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
