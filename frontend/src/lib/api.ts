@@ -68,6 +68,19 @@ class APIClient {
     return response.json()
   }
 
+  async delete<T>(endpoint: string): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(),
+    })
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
   // Streaming endpoint for chat
   async streamPost(endpoint: string, data: any): Promise<Response> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {

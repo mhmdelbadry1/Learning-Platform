@@ -31,7 +31,7 @@ export default function Documents() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiClient.post(`/api/documents/${id}`, {})
+      await apiClient.delete(`/api/documents/${id}`)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] })
