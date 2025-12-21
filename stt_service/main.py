@@ -72,21 +72,22 @@ async def transcribe_audio(file: UploadFile = File(...)):
     file_key = f"uploads/{transcription_id}_{file.filename}"
     
     try:
+        # Read file content once
+        file_content = await file.read()
+        
         # 1. Upload to S3
-        s3_client.upload_fileobj(file.file, S3_BUCKET, file_key)
+        from io import BytesIO
+        s3_client.upload_fileobj(BytesIO(file_content), S3_BUCKET, file_key)
         s3_url = f"s3://{S3_BUCKET}/{file_key}"
         
         # 2. Process Audio - Actual Transcription
         try:
             import speech_recognition as sr
             
-            # Reset file pointer
-            file.file.seek(0)
-            
             # Save temporarily
             temp_path = f"/tmp/{transcription_id}_{file.filename}"
             with open(temp_path, "wb") as f:
-                f.write(file.file.read())
+                f.write(file_content)
             
             # Recognize speech
             recognizer = sr.Recognizer()

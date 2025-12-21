@@ -26,8 +26,8 @@ services:
     container_name: chat-service
     restart: always
     env_file: .env
-    dns:
-      - 8.8.8.8
+    extra_hosts:
+      - "database-1-encrypted-v1.c05ow22qsf70.us-east-1.rds.amazonaws.com:10.0.20.161"
     networks:
       - app-network
 
@@ -39,8 +39,8 @@ services:
     container_name: stt-service
     restart: always
     env_file: .env
-    dns:
-      - 8.8.8.8
+    extra_hosts:
+      - "database-1-encrypted-v1.c05ow22qsf70.us-east-1.rds.amazonaws.com:10.0.20.161"
     networks:
       - app-network
 
@@ -52,8 +52,8 @@ services:
     container_name: tts-service
     restart: always
     env_file: .env
-    dns:
-      - 8.8.8.8
+    extra_hosts:
+      - "database-1-encrypted-v1.c05ow22qsf70.us-east-1.rds.amazonaws.com:10.0.20.161"
     networks:
       - app-network
 
@@ -65,8 +65,8 @@ services:
     container_name: document-service
     restart: always
     env_file: .env
-    dns:
-      - 8.8.8.8
+    extra_hosts:
+      - "database-1-encrypted-v1.c05ow22qsf70.us-east-1.rds.amazonaws.com:10.0.20.161"
     networks:
       - app-network
 
@@ -78,8 +78,8 @@ services:
     container_name: quiz-service
     restart: always
     env_file: .env
-    dns:
-      - 8.8.8.8
+    extra_hosts:
+      - "database-1-encrypted-v1.c05ow22qsf70.us-east-1.rds.amazonaws.com:10.0.20.161"
     networks:
       - app-network
 
