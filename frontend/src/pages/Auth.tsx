@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { LogIn, UserPlus, Loader2, CheckCircle2, XCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import apiClient from '../lib/api'
 
 interface AuthProps {
@@ -7,6 +8,7 @@ interface AuthProps {
 }
 
 export default function Auth({ onAuth }: AuthProps) {
+  const navigate = useNavigate()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -39,6 +41,7 @@ export default function Auth({ onAuth }: AuthProps) {
         // Delay navigation to show success message
         setTimeout(() => {
           onAuth()
+          navigate('/')
         }, 1000)
       } else {
         // Register
@@ -58,10 +61,12 @@ export default function Auth({ onAuth }: AuthProps) {
         // Delay navigation to show success message
         setTimeout(() => {
           onAuth()
+          navigate('/')
         }, 1000)
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'Authentication failed')
+      const errorMessage = err.response?.data?.detail || err.message || 'Authentication failed'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -82,8 +87,8 @@ export default function Auth({ onAuth }: AuthProps) {
             <button
               onClick={() => { setIsLogin(true); setError(''); setSuccess('') }}
               className={`flex-1 py-3 font-medium transition-all ${isLogin
-                  ? 'text-primary-400 border-b-2 border-primary-400'
-                  : 'text-slate-400 border-b-2 border-transparent'
+                ? 'text-primary-400 border-b-2 border-primary-400'
+                : 'text-slate-400 border-b-2 border-transparent'
                 }`}
             >
               <LogIn className="w-5 h-5 inline mr-2" />
@@ -92,8 +97,8 @@ export default function Auth({ onAuth }: AuthProps) {
             <button
               onClick={() => { setIsLogin(false); setError(''); setSuccess('') }}
               className={`flex-1 py-3 font-medium transition-all ${!isLogin
-                  ? 'text-primary-400 border-b-2 border-primary-400'
-                  : 'text-slate-400 border-b-2 border-transparent'
+                ? 'text-primary-400 border-b-2 border-primary-400'
+                : 'text-slate-400 border-b-2 border-transparent'
                 }`}
             >
               <UserPlus className="w-5 h-5 inline mr-2" />
