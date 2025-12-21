@@ -24,7 +24,8 @@ export default function Documents() {
       const docs = await apiClient.get<Document[]>(`/api/documents?user_id=${userId}`)
       return docs
     },
-    refetchInterval: 5000 // Refetch every 5s to check processing status
+    refetchInterval: 5000, // Keep polling to check processing status
+    staleTime: 0 // Always consider data stale so cache invalidation works immediately
   })
 
   // Delete mutation
