@@ -333,8 +333,8 @@ async def get_quiz(id: str):
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
     
-    # Parse questions and remove correct answers (don't reveal to user)
-    questions = json.loads(quiz[2])
+    # Parse questions - JSONB is already parsed by psycopg2
+    questions = quiz[2] if isinstance(quiz[2], list) else json.loads(quiz[2])
     hidden_questions = [
         {k: v for k, v in q.items() if k not in ["correct_answer", "explanation"]}
         for q in questions
@@ -363,7 +363,8 @@ async def submit_quiz(id: str, submission: QuizSubmission):
             if not quiz:
                 raise HTTPException(status_code=404, detail="Quiz not found")
             
-            questions = json.loads(quiz[0])
+            # JSONB is already parsed by psycopg2
+            questions = quiz[0] if isinstance(quiz[0], list) else json.loads(quiz[0])
     
         # Calculate score and feedback
         results = calculate_score_and_feedback(
