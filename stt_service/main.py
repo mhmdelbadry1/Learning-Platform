@@ -83,21 +83,36 @@ async def transcribe_audio(file: UploadFile = File(...)):
         # 2. Process Audio - Actual Transcription
         try:
             import speech_recognition as sr
+            from pydub import AudioSegment
+            import os
             
-            # Save temporarily
-            temp_path = f"/tmp/{transcription_id}_{file.filename}"
-            with open(temp_path, "wb") as f:
+            # Save uploaded file temporarily
+            temp_input = f"/tmp/{transcription_id}_input_{file.filename}"
+            with open(temp_input, "wb") as f:
                 f.write(file_content)
+            
+            # Convert to WAV if needed
+            temp_wav = f"/tmp/{transcription_id}.wav"
+            if file.filename.lower().endswith('.mp3'):
+                audio = AudioSegment.from_mp3(temp_input)
+                audio.export(temp_wav, format="wav")
+                os.remove(temp_input)
+            elif file.filename.lower().endswith('.wav'):
+                temp_wav = temp_input
+            else:
+                # Try to load as audio and convert
+                audio = AudioSegment.from_file(temp_input)
+                audio.export(temp_wav, format="wav")
+                os.remove(temp_input)
             
             # Recognize speech
             recognizer = sr.Recognizer()
-            with sr.AudioFile(temp_path) as source:
+            with sr.AudioFile(temp_wav) as source:
                 audio_data = recognizer.record(source)
                 transcribed_text = recognizer.recognize_google(audio_data)
             
             # Clean up
-            import os
-            os.remove(temp_path)
+            os.remove(temp_wav)
             
         except Exception as e:
             print(f"Transcription error: {e}")

@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
 from gtts import gTTS
 import boto3
+from botocore.client import Config
 import sys
 
 # Add parent directory to path to import common modules
@@ -23,7 +24,12 @@ AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 S3_BUCKET = os.getenv("TTS_BUCKET_NAME", "tts-service-storage-dev")
 
 # Use default credential provider chain (IAM role or env vars)
-s3_client = boto3.client('s3', region_name=AWS_REGION)
+# Force Signature Version 4 for KMS-encrypted buckets
+s3_client = boto3.client(
+    's3', 
+    region_name=AWS_REGION,
+    config=Config(signature_version='s3v4')
+)
 
 class TTSRequest(BaseModel):
     text: str

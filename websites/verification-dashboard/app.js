@@ -265,14 +265,24 @@ ttsBtn.addEventListener('click', async () => {
                 console.log("Audio response:", audioRes);
 
                 if (audioRes && audioRes.url) {
-                    // Create audio player
+                    // Create audio player and force load
                     ttsPlayerContainer.innerHTML = `
-                        <audio controls autoplay style="width: 100%; margin-top: 10px;">
+                        <audio id="tts-audio-player" controls style="width: 100%; margin-top: 10px;">
                             <source src="${audioRes.url}" type="audio/mpeg">
                             Your browser does not support the audio element.
                         </audio>
                         <p style="font-size: 0.8em; color: #4ade80; margin-top: 5px;">✓ Audio generated successfully</p>
+                        <a href="${audioRes.url}" target="_blank" style="font-size: 0.8em; color: #60a5fa; display: block; margin-top: 5px;">Download Audio</a>
                     `;
+                    
+                    // Force audio element to load
+                    setTimeout(() => {
+                        const audioEl = document.getElementById('tts-audio-player');
+                        if (audioEl) {
+                            audioEl.load();
+                            audioEl.play().catch(e => console.log('Autoplay blocked:', e));
+                        }
+                    }, 100);
                 } else {
                     ttsPlayerContainer.innerHTML = `<p style="color: #f87171;">Failed to get audio URL. Check logs.</p>`;
                 }
@@ -309,14 +319,14 @@ sttBtn.addEventListener('click', async () => {
 
         sttBtn.textContent = "Transcribing...";
 
-        // Poll for completion
+        // Poll for completion (15 attempts = 30 seconds)
         let attempts = 0;
         const interval = setInterval(async () => {
             attempts++;
-            if (attempts > 5) {
+            if (attempts > 15) {
                 clearInterval(interval);
                 sttBtn.textContent = "Transcribe";
-                alert("Transcription timed out (or is async). Check history.");
+                alert("Transcription taking longer than expected. It may still be processing.");
                 return;
             }
 

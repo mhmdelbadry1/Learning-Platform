@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+  }
+  
+  * {
+    @apply border-slate-700;
+  }
+  
+  body {
+    @apply bg-slate-900 text-slate-100 font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Custom scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-2;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-slate-800;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-slate-600 rounded-full hover:bg-slate-500;
+  }
+  
+  /* Glassmorphism */
+  .glass {
+    @apply bg-slate-800/50 backdrop-blur-md border border-slate-700/50;
+  }
+  
+  /* Card styles */
+  .card {
+    @apply glass rounded-xl p-6 shadow-xl;
+  }
+}
